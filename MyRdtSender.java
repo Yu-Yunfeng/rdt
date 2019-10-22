@@ -1,3 +1,4 @@
+import com.sun.xml.internal.bind.v2.runtime.output.Pcdata;
 import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
 import sim.Packet;
 import sim.RdtSender;
@@ -90,7 +91,8 @@ public class MyRdtSender extends RdtSender {
                 System.out.printf("Sender begins to send packet %d\n", pkt.data[1]);
                 packets.add(pkt);
                 System.out.printf("packet %d pushed into packets\n", pkt.data[1]);
-                sendToLowerLayer(pkt);
+                Packet tmp_pkt = copyPacket(pkt);
+                sendToLowerLayer(tmp_pkt);
             }
 
 
@@ -120,7 +122,8 @@ public class MyRdtSender extends RdtSender {
                 System.out.printf("packet %d pushed into packets\n", pkt.data[1]);
                 packets.add(pkt);
                 System.out.printf("Sender begins to send packet %d\n", pkt.data[1]);
-                sendToLowerLayer(pkt);
+                Packet tmp_pkt = copyPacket(pkt);
+                sendToLowerLayer(tmp_pkt);
             }
             seq = seq == 0x7F ? 0 : seq + 1;
         }
@@ -173,7 +176,8 @@ public class MyRdtSender extends RdtSender {
                 Packet pkt = wait_packets.poll();
                 packets.add(pkt);
                 System.out.printf("packet %d push into packets\n", pkt.data[1]);
-                sendToLowerLayer(pkt);
+                Packet tmp_pkt = copyPacket(pkt);
+                sendToLowerLayer(tmp_pkt);
             }
             //System.out.printf("and now the array_begin = %d \n", array_begin);
         }
@@ -189,7 +193,8 @@ public class MyRdtSender extends RdtSender {
             while(!wait_packets.isEmpty() && packets.size() < window_size) {
                 Packet pkt = wait_packets.poll();
                 packets.add(pkt);
-                sendToLowerLayer(pkt);
+                Packet tmp_pkt = copyPacket(pkt);
+                sendToLowerLayer(tmp_pkt);
             }
             //System.out.printf("and now the array_begin = %d \n", array_begin);
         }
@@ -206,11 +211,18 @@ public class MyRdtSender extends RdtSender {
 //        System.out.printf("Sender: Time out, resend\n");
 //        sendToLowerLayer(packets.get(0));
         for (int i = 0 ; i < packets.size() ; i++){
-            sendToLowerLayer(packets.get(i));
+            Packet tmp_pkt = copyPacket(packets.get(i));
+            sendToLowerLayer(tmp_pkt);
         }
     }
 
     public byte CheckSum(Packet packet){
         return (byte) 0;
+    }
+
+    public Packet copyPacket(Packet packet){
+        Packet pkt = new Packet();
+        System.arraycopy(packet.data, 0, pkt.data, 0, packet.data.length);
+        return pkt;
     }
 }

@@ -68,7 +68,7 @@ public class MyRdtReceiver extends RdtReceiver {
         System.out.printf("Receiver: acc_ack = %d, received seq = %d\n", acc_ack, packet.data[1]);
         byte seq = packet.data[1];
         byte expected_seq = acc_ack == (byte) 0x7F ? (byte) 0x00 : (byte) (acc_ack + (byte) 1);
-        if( seq - expected_seq > 0x4F || (expected_seq - seq < 10 && expected_seq - seq > 0)){
+        if( seq - expected_seq > 0x4F || (expected_seq - seq <= 10 && expected_seq - seq > 0)){
             System.out.printf("Receiver: drop the packet %d\n", seq);
             return false;
         }
