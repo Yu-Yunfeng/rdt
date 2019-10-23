@@ -52,7 +52,7 @@ public class MyRdtReceiver extends RdtReceiver {
         if (size > RDT_PKTSIZE - header_size) size = RDT_PKTSIZE - header_size;
 
         // check whether the packet is valid
-        if(!validatePacletFromLowerLayer(packet)) return ;
+        if(!validatePacketFromLowerLayer(packet)) return ;
 
         // construct a message and deliver it to the upper layer
         byte[] message = new byte[size];
@@ -60,7 +60,7 @@ public class MyRdtReceiver extends RdtReceiver {
         sendToUpperLayer(message);
     }
 
-    public boolean validatePacletFromLowerLayer(Packet packet){
+    public boolean validatePacketFromLowerLayer(Packet packet){
         Packet ack_packet = new Packet();
 
         // check whether there is a bit flipped
@@ -97,6 +97,12 @@ public class MyRdtReceiver extends RdtReceiver {
     }
 
     public byte checkSum(Packet packet){
-        return (byte) 0;
+        long data = (long) packet.data[1] & 0xFF;
+        long sum = 0;
+        
+        sum = ~data;
+        sum = sum & 0xFFFF;
+        
+        return (byte) sum;
     }
 }
