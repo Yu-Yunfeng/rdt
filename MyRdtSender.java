@@ -1,5 +1,3 @@
-import com.sun.xml.internal.bind.v2.runtime.output.Pcdata;
-import com.sun.xml.internal.bind.v2.runtime.reflect.Lister;
 import sim.Packet;
 import sim.RdtSender;
 
