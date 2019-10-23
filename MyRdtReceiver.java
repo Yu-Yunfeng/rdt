@@ -45,7 +45,7 @@ public class MyRdtReceiver extends RdtReceiver {
         // todo: write code here...
 
         // 1-byte header indicating the size of the payload
-        int header_size = 3;
+        int header_size = 4;
 
         // sanity check in case the packet is corrupted
         int size = packet.data[0] & 0xFF;
