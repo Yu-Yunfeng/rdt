@@ -62,7 +62,9 @@ public class MyRdtSender extends RdtSender {
         // todo: write code here...
 
         // 1-byte header indicating the size of the payload
-        int header_size = 3;
+        // 1-byte seq #
+        // 2-byte chechsum
+        int header_size = 4;
 
         // maximum payload size
         int maxpayload_size = RDT_PKTSIZE - header_size;
@@ -140,7 +142,7 @@ public class MyRdtSender extends RdtSender {
         int ack = packet.data[1];
         if(packets.size() == 0) return;
         int firstpkt = (int) packets.get(0).data[1];
-        if(firstpkt < window_size && firstpkt + 128 - ack != 1 && firstpkt + 128 - ack < 10) return;
+        if(firstpkt < window_size && firstpkt + 128 - ack != 1 && firstpkt + 128 - ack < window_size) return;
         if(firstpkt >= window_size && firstpkt - ack != 1 && firstpkt - ack < window_size && firstpkt > ack) return;
 //        System.out.printf("The array_end = %d and the original array_begin = %d ",array_end ,array_begin);
         if((ack + 1) % 128 == firstpkt) {
@@ -217,7 +219,27 @@ public class MyRdtSender extends RdtSender {
     }
 
     public byte CheckSum(Packet packet){
-        return (byte) 0;
+        int length = (int) packet.data[0];
+        int i = 3;
+        
+        long sum = 0;
+        long data;
+        
+        while(length > 1){
+            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF))
+            sum += data;
+            
+            if ((sum & 0xFFFF0000) > 0){
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+            i += 2;
+            length -= 2;
+        }
+        sum = ~sum;
+        sum = sum & 0xFFFF;
+        
+        return (byte) sum;
     }
 
     public Packet copyPacket(Packet packet){
