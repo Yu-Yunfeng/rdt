@@ -39,6 +39,7 @@ public class MyRdtSender extends RdtSender {
     Queue<Packet> wait_packets;
     byte lastack;
     byte lastack_n;
+    long checksum;
     double timeout = 0.02;
     /**
      * Sender initialization
@@ -78,8 +79,19 @@ public class MyRdtSender extends RdtSender {
             pkt.data[0] = (byte) maxpayload_size;
             System.out.printf("make seq = %d\n", seq);
             pkt.data[1] = (byte) (seq);
-            pkt.data[2] = CheckSum(pkt);
+            pkt.data[2] = (byte) 0;
+            pkt.data[3] = (byte) 0;
             System.arraycopy(message, cursor, pkt.data, header_size, maxpayload_size);
+            checksum = checkSum(pkt);
+            pkt.data[2] = (byte) ((checksum & 0xFFFF) >> 8);
+            pkt.data[3] = (byte) (checksum & 0xFF);
+            
+            /*
+            if (validateCheckSum(pkt) == false)
+                System.out.println("Error!!!!!!!!");
+            else
+                System.out.println("Trust the process!!!");
+            */
 
             // send it out through the lower layer
             if(packets.size() == window_size){
@@ -95,7 +107,6 @@ public class MyRdtSender extends RdtSender {
                 sendToLowerLayer(tmp_pkt);
             }
 
-
             seq = seq == 0x7F ? 0 : seq + 1;
 
             // move the cursor
@@ -109,9 +120,19 @@ public class MyRdtSender extends RdtSender {
             System.out.printf("make seq = %d\n", seq);
             pkt.data[0] = (byte) (message.length - cursor);
             pkt.data[1] = (byte) (seq);
-            pkt.data[2] = CheckSum(pkt);
+            pkt.data[2] = (byte) 0;
+            pkt.data[3] = (byte) 0;
             System.arraycopy(message, cursor, pkt.data, header_size, pkt.data[0]);
+            pkt.data[2] = (byte) ((checksum & 0xFFFF) >> 8);
+            pkt.data[3] = (byte) (checksum & 0xFF);
 
+            /*
+            if (validateCheckSum(pkt) == false)
+            	System.out.println("LAST Error!!!!!!!!");
+            else
+                System.out.println("Finish the process!!!");
+            */
+            
             // send it out through the lower layer
             if (packets.size() == window_size){
                 //System.out.printf("The window now is full, %d, %d, %d\n", );
@@ -136,6 +157,10 @@ public class MyRdtSender extends RdtSender {
     public void receiveFromLowerLayer(Packet packet) {
         // todo: write code here...
 
+        if(validateCheckSum(packet) == false){
+            //System.out.printf("The ACK %d is corrupted!\n", packet.data[1]);
+            return;
+        }
         if(packets.size() > 0) System.out.printf("Sender: received ack: %d and the first packet in window is %d\n", packet.data[1], packets.get(0).data[1]);
         int ack = packet.data[1];
         if(packets.size() == 0) return;
@@ -216,30 +241,71 @@ public class MyRdtSender extends RdtSender {
         }
     }
 
-    public byte CheckSum(Packet packet){
-        int length = (int) packet.data[0];
-        int i = 3;
-        
+    public long checkSum(Packet packet){
+        int length = packet.data.length;
+        int i = 0;
+
         long sum = 0;
         long data;
-        
+
         while(length > 1){
-            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF))
+            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF));
             sum += data;
-            
-            if ((sum & 0xFFFF0000) > 0){
+
+            if ((sum & 0xFFFF0000) > 0) {
                 sum = sum & 0xFFFF;
                 sum += 1;
             }
             i += 2;
             length -= 2;
         }
+
+        if(length > 0){
+
+            sum += ((packet.data[i] << 8) & 0xFF00);
+
+            if((sum & 0xFFFF0000) > 0){
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+        }
         sum = ~sum;
         sum = sum & 0xFFFF;
-        
-        return (byte) sum;
+
+        return sum;
     }
 
+    public boolean validateCheckSum(Packet packet){
+        int length = packet.data.length;
+        int i = 0;
+
+        long sum = 0;
+        long data;
+
+        while(length > 1){
+            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF));
+            sum += data;
+
+            if ((sum & 0xFFFF0000) > 0) {
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+            i += 2;
+            length -= 2;
+        }
+
+        if(length > 0){
+
+            sum += ((packet.data[i] << 8) & 0xFF00);
+
+            if((sum & 0xFFFF0000) > 0){
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+        }
+        return sum == 0xFFFF;
+    }
+    
     public Packet copyPacket(Packet packet){
         Packet pkt = new Packet();
         System.arraycopy(packet.data, 0, pkt.data, 0, packet.data.length);
