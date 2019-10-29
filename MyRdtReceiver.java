@@ -30,6 +30,7 @@ import static sim.Packet.RDT_PKTSIZE;
 public class MyRdtReceiver extends RdtReceiver {
 
     byte acc_ack;
+    long checksum;
     /**
      * Receiver initialization
      */
@@ -64,7 +65,10 @@ public class MyRdtReceiver extends RdtReceiver {
         Packet ack_packet = new Packet();
 
         // check whether there is a bit flipped
-        //if(validateCheckSum(packet.data) == false) return false;
+        if(validateCheckSum(packet) == false) {
+            //System.out.printf("The packet %d is corrupted!\n", ack_packet.data[1]);
+            return false;
+        }
         System.out.printf("Receiver: acc_ack = %d, received seq = %d\n", acc_ack, packet.data[1]);
         byte seq = packet.data[1];
         byte expected_seq = acc_ack == (byte) 0x7F ? (byte) 0x00 : (byte) (acc_ack + (byte) 1);
@@ -76,7 +80,11 @@ public class MyRdtReceiver extends RdtReceiver {
 
         ack_packet.data[0] = (byte) 0;
         ack_packet.data[1] = expected_seq == seq ? expected_seq : acc_ack;
-        ack_packet.data[2] = checkSum(ack_packet);
+        ack_packet.data[2] = (byte) 0;
+        ack_packet.data[3] = (byte) 0;
+        checksum = checkSum(ack_packet);
+        ack_packet.data[2] = (byte) ((checksum & 0xFFFF) >> 8);
+        ack_packet.data[3] = (byte) (checksum & 0xFF);
         sendToLowerLayer(ack_packet);
         if(seq != expected_seq){
             System.out.printf("Receiver: received packet %d but need packet %d\n", seq,expected_seq);
@@ -87,22 +95,68 @@ public class MyRdtReceiver extends RdtReceiver {
         return seq == acc_ack;
     }
 
-    public boolean validateCheckSum(byte [] data){
-        byte sum = 0;
-        for(int i = 0 ; i < data.length ; i++){
-            if(i == 2) continue;
-            if(sum > 0xFF - data[i]) sum += data[i] + 1;
-        }
-        return sum + data[2] == 0xFF;
-    }
+    public boolean validateCheckSum(Packet packet){
+        int length = packet.data.length;
+        int i = 0;
 
-    public byte checkSum(Packet packet){
-        long data = (long) packet.data[1] & 0xFF;
         long sum = 0;
-        
-        sum = ~data;
+        long data;
+
+        while(length > 1){
+            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF));
+            sum += data;
+
+            if ((sum & 0xFFFF0000) > 0) {
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+            i += 2;
+            length -= 2;
+        }
+
+        if(length > 0){
+
+            sum += ((packet.data[i] << 8) & 0xFF00);
+
+            if((sum & 0xFFFF0000) > 0){
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+        }
+        return sum == 0xFFFF;
+    }
+    
+    public long checkSum(Packet packet){
+        int length = packet.data.length;
+        int i = 0;
+
+        long sum = 0;
+        long data;
+
+        while(length > 1){
+            data = (((packet.data[i] << 8) & 0xFF00) | ((packet.data[i + 1]) & 0xFF));
+            sum += data;
+
+            if ((sum & 0xFFFF0000) > 0) {
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+            i += 2;
+            length -= 2;
+        }
+
+        if(length > 0){
+
+            sum += ((packet.data[i] << 8) & 0xFF00);
+
+            if((sum & 0xFFFF0000) > 0){
+                sum = sum & 0xFFFF;
+                sum += 1;
+            }
+        }
+        sum = ~sum;
         sum = sum & 0xFFFF;
-        
-        return (byte) sum;
+
+        return sum;
     }
 }
